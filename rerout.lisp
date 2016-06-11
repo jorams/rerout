@@ -4,7 +4,7 @@
 ;;;; DEFINE-ROUTER.
 
 (defpackage :rerout
-  (:use :cl :cl-ppcre :alexandria)
+  (:use :cl :cl-ppcre)
   (:export #:define-router
            #:route))
 (in-package :rerout)
@@ -12,6 +12,12 @@
 ;;; Route URLs ----------------------------------------------------------------
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun trailing-slash-p (string)
+    "Check if STRING ends with a / character."
+    (let ((length (length string)))
+      (and (plusp length)
+           (eql #\/ (char string (1- length))))))
+
   (let ((colon-regex (create-scanner
                       (concatenate 'string
                                    ":([^/]+?)"            ; name
@@ -99,7 +105,7 @@ wildcard parameter."
                           (wildcardp "$")
                           ;; If the template ends in a /, it should be made
                           ;; optional
-                          ((ends-with #\/ (lastcar regex-parts))
+                          ((trailing-slash-p (car (last regex-parts)))
                            "?$")
                           ;; If the template doesn't end in a / we add an
                           ;; optional one to it.
@@ -131,10 +137,10 @@ version of the request URL to which the user should be redirected."
                    ;; URL differs from the template in whether it has a trailing
                    ;; slash, we generate a URL for the user to be redirected to.
                    ,(unless wildcardp
-                      (if (ends-with #\/ template)
-                          `(unless (ends-with #\/ ,url-sym)
+                      (if (trailing-slash-p template)
+                          `(unless (trailing-slash-p ,url-sym)
                              (format nil "~A/" ,url-sym))
-                          `(when (ends-with #\/ ,url-sym)
+                          `(when (trailing-slash-p ,url-sym)
                              (subseq ,url-sym 0 (1- (length ,url-sym)))))))))))
 
   (defun make-url-generator (template parameters)
