@@ -21,13 +21,11 @@
   (let ((colon-regex (create-scanner
                       (concatenate 'string
                                    ":([^/]+?)"            ; name
-                                   "(?:(?:\\{(.+?)\\}))?" ; optional regex
                                    "(?:(?=/)|$)"          ; end of match
                                    )))
         (splat-regex (create-scanner
                       (concatenate 'string
                                    "\\*(.*?)"         ; name
-                                   "(?:(\\{.+?\\}))?" ; optional regex
                                    "$"                ; end of match
                                    ))))
     (defun parse-parameter (parameter)
@@ -42,7 +40,7 @@ segment.
 
 The third element will be a boolean value indicating if the parameter is a
 wildcard parameter."
-      (register-groups-bind (name regex)
+      (register-groups-bind (name)
           ((case (char parameter 0)
              (#\: colon-regex)
              (#\* splat-regex))
@@ -50,11 +48,9 @@ wildcard parameter."
         (let ((keyword (intern (string-upcase name) :keyword))
               (symbol (intern (string-upcase name))))
           (list (list keyword symbol)
-                (format nil
-                        (ecase (char parameter 0)
-                          (#\: "(~A)(?=/|$)")
-                          (#\* "(~A)$"))
-                        (or regex ".*?"))
+                (ecase (char parameter 0)
+                  (#\: "([^/]+?)(?=/|$)")
+                  (#\* "(.*?)$"))
                 (char= #\* (char parameter 0)))))))
 
 
@@ -199,10 +195,6 @@ the form of `*param-name`. Parameters of this sort will match until the end of
 the request URL. If the URL matches, the values for these parameters are
 collected and returned by ROUTE as a property list.
 
-If desired, it's also possible to specify the regular expression used by a
-parameter by placing it within {} after the parameter name. This should be done
-with caution.
-
 RESULT is an (unevaluated) value returned by ROUTE when the route matches. A
 good use for this would be a symbol representing a function name.
 
@@ -227,9 +219,7 @@ Example:
 
   (define-router site ()
     (:include api)
-    ((:get :post) \"/\" index url/index)
-    ;; Note the regular expression between {}
-    (:get \"/:example{[^/]+}\" example))
+    ((:get :post) \"/\" index url/index))
 
   (url/api-example-url :namespace \"example\" :terms \"example search terms\")
   ;; => \"/api/example/search/example%20search%20terms\"
